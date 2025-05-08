@@ -49,7 +49,7 @@ const AdminDashboard: React.FC = () => {
   
   const handleZoneAdded = (zone: RestrictedZone) => {
     setRestrictedZones(prev => [...prev, zone]);
-    toast.success(`New zone created: ${zone.name}`);
+    toast(`New zone created: ${zone.name}`);
   };
   
   // Function to check if user is in a restricted zone
@@ -322,7 +322,7 @@ const AdminDashboard: React.FC = () => {
                                 setRestrictedZones(prev => 
                                   prev.filter(item => item.id !== zone.id)
                                 );
-                                toast.success(`Zone "${zone.name}" removed`);
+                                toast(`Zone "${zone.name}" removed`);
                               }}
                             >
                               Remove
@@ -378,8 +378,7 @@ const AdminDashboard: React.FC = () => {
                               <Button 
                                 className="w-full"
                                 onClick={() => {
-                                  toast({
-                                    title: "Camera Protection Active",
+                                  toast("Camera Protection Active", {
                                     description: "All device cameras are being monitored and will be disabled in restricted zones."
                                   });
                                 }}

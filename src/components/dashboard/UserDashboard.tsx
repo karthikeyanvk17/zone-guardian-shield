@@ -210,8 +210,7 @@ const UserDashboard: React.FC = () => {
                     variant="outline" 
                     className="w-full"
                     onClick={() => {
-                      toast({
-                        title: "Camera Protection Active",
+                      toast("Camera Protection Active", {
                         description: "Your camera will be automatically disabled in restricted zones."
                       });
                     }}
