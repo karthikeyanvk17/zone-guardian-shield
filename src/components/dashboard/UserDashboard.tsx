@@ -10,7 +10,13 @@ import {
   Info,
   LogOut, 
   Menu, 
-  X 
+  X,
+  Lock,
+  Smartphone,
+  Bell,
+  Share,
+  Settings,
+  HelpCircle
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import MapComponent, { RestrictedZone } from '@/components/map/MapComponent';
@@ -43,6 +49,55 @@ const UserDashboard: React.FC = () => {
   
   const [isInRestrictedZone, setIsInRestrictedZone] = useState(false);
   
+  // Enhanced feature states
+  const [cameraLocked, setCameraLocked] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [animationSpeed, setAnimationSpeed] = useState("normal");
+  
+  // Request camera permissions on component mount
+  useEffect(() => {
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => {
+          stream.getTracks().forEach(track => track.stop());
+          toast("Camera Permission Granted", {
+            description: "CaptureShield can now manage your camera access."
+          });
+        })
+        .catch(err => {
+          console.error("Error accessing camera:", err);
+          toast("Camera Permission Denied", {
+            description: "Please enable camera access for full functionality.",
+            variant: "destructive"
+          });
+        });
+    }
+  }, []);
+  
+  // Get real location on mount
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+          toast("Location Updated", {
+            description: "Using your real device location"
+          });
+        },
+        (error) => {
+          console.error("Location error:", error);
+          toast("Location Access Denied", {
+            description: "Using simulated location instead.",
+            variant: "destructive"
+          });
+        }
+      );
+    }
+  }, []);
+  
   // Function to check if user is in a restricted zone
   const checkUserInRestrictedZone = () => {
     const inZone = restrictedZones.some(zone => {
@@ -64,9 +119,25 @@ const UserDashboard: React.FC = () => {
   const toggleMenu = () => {
     setMenuOpen(!menuOpen);
   };
+  
+  // Lock all cameras function
+  const handleLockAllCameras = () => {
+    setCameraLocked(true);
+    toast("All Cameras Locked", {
+      description: "Camera access is now disabled on your device."
+    });
+  };
+  
+  // Unlock cameras function
+  const handleUnlockCameras = () => {
+    setCameraLocked(false);
+    toast("Cameras Unlocked", {
+      description: "Normal camera functionality restored."
+    });
+  };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className={`min-h-screen bg-background flex flex-col ${animationSpeed === "fast" ? "fast-animations" : ""}`}>
       {/* Header */}
       <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center justify-between">
@@ -79,7 +150,7 @@ const UserDashboard: React.FC = () => {
             <Badge variant="outline" className="flex items-center gap-1">
               <span>{user?.name}</span>
             </Badge>
-            <Button variant="ghost" onClick={logout} size="sm">
+            <Button variant="ghost" onClick={logout} size="sm" className="hover-scale">
               <LogOut className="h-4 w-4 mr-1" />
               Logout
             </Button>
@@ -91,10 +162,11 @@ const UserDashboard: React.FC = () => {
         </div>
       </header>
       
-      {/* Mobile Menu Overlay */}
+      {/* Mobile Menu Overlay - Fixed to appear above content */}
       {menuOpen && (
-        <div className="fixed inset-0 z-50 menu-overlay flex md:hidden">
-          <div className="bg-background w-2/3 h-full shadow-xl p-4 animate-slide-in">
+        <div className="fixed inset-0 z-50 flex md:hidden">
+          <div className="bg-black/50 backdrop-blur-sm w-full h-full" onClick={toggleMenu}></div>
+          <div className="bg-background w-2/3 h-full shadow-xl p-4 animate-slide-in absolute right-0">
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-2">
                 <Shield className="h-6 w-6 text-primary" />
@@ -116,7 +188,7 @@ const UserDashboard: React.FC = () => {
               <Button 
                 onClick={() => { setActiveTab("map"); toggleMenu(); }} 
                 variant={activeTab === "map" ? "default" : "ghost"}
-                className="w-full justify-start"
+                className="w-full justify-start hover-scale"
               >
                 <MapIcon className="h-4 w-4 mr-2" />
                 Map View
@@ -125,10 +197,19 @@ const UserDashboard: React.FC = () => {
               <Button 
                 onClick={() => { setActiveTab("camera"); toggleMenu(); }} 
                 variant={activeTab === "camera" ? "default" : "ghost"}
-                className="w-full justify-start"
+                className="w-full justify-start hover-scale"
               >
                 <Camera className="h-4 w-4 mr-2" />
                 Camera
+              </Button>
+              
+              <Button
+                onClick={() => { setActiveTab("settings"); toggleMenu(); }}
+                variant={activeTab === "settings" ? "default" : "ghost"}
+                className="w-full justify-start hover-scale"
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Settings
               </Button>
               
               <Separator />
@@ -136,11 +217,22 @@ const UserDashboard: React.FC = () => {
               <Button 
                 onClick={logout} 
                 variant="outline"
-                className="w-full justify-start"
+                className="w-full justify-start hover-scale"
               >
                 <LogOut className="h-4 w-4 mr-2" />
                 Logout
               </Button>
+              
+              <div className="mt-8">
+                <Button 
+                  onClick={cameraLocked ? handleUnlockCameras : handleLockAllCameras} 
+                  variant={cameraLocked ? "outline" : "destructive"}
+                  className="w-full justify-center animate-pulse-subtle"
+                >
+                  <Lock className="h-4 w-4 mr-2" />
+                  {cameraLocked ? "Unlock Cameras" : "Lock All Cameras"}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -160,7 +252,7 @@ const UserDashboard: React.FC = () => {
                   <Button 
                     onClick={() => setActiveTab("map")}
                     variant={activeTab === "map" ? "default" : "ghost"}
-                    className="w-full justify-start"
+                    className="w-full justify-start hover-scale"
                   >
                     <MapIcon className="h-4 w-4 mr-2" />
                     Map View
@@ -169,16 +261,25 @@ const UserDashboard: React.FC = () => {
                   <Button 
                     onClick={() => setActiveTab("camera")}
                     variant={activeTab === "camera" ? "default" : "ghost"}
-                    className="w-full justify-start"
+                    className="w-full justify-start hover-scale"
                   >
                     <Camera className="h-4 w-4 mr-2" />
                     Camera
+                  </Button>
+                  
+                  <Button 
+                    onClick={() => setActiveTab("settings")}
+                    variant={activeTab === "settings" ? "default" : "ghost"}
+                    className="w-full justify-start hover-scale"
+                  >
+                    <Settings className="h-4 w-4 mr-2" />
+                    Settings
                   </Button>
                 </div>
                 
                 <Separator className="my-4" />
                 
-                <div className="rounded-lg border p-3">
+                <div className="rounded-lg border p-3 animate-fade-in">
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="text-sm font-medium">Protection Status</h3>
                     <Badge variant="outline" className="bg-green-100 text-green-800 hover:bg-green-200">
@@ -189,9 +290,9 @@ const UserDashboard: React.FC = () => {
                   <div className="text-xs text-muted-foreground">
                     <div className="flex items-center justify-between py-1">
                       <span>Camera:</span>
-                      <Badge variant={isInRestrictedZone ? "destructive" : "outline"} 
-                        className={isInRestrictedZone ? "" : "bg-green-100 text-green-800"}>
-                        {isInRestrictedZone ? "Disabled" : "Enabled"}
+                      <Badge variant={(isInRestrictedZone || cameraLocked) ? "destructive" : "outline"} 
+                        className={(isInRestrictedZone || cameraLocked) ? "" : "bg-green-100 text-green-800"}>
+                        {(isInRestrictedZone || cameraLocked) ? "Disabled" : "Enabled"}
                       </Badge>
                     </div>
                     <p className="flex items-center justify-between py-1">
@@ -208,7 +309,7 @@ const UserDashboard: React.FC = () => {
                 <div className="mt-4">
                   <Button 
                     variant="outline" 
-                    className="w-full"
+                    className="w-full hover-scale"
                     onClick={() => {
                       toast("Camera Protection Active", {
                         description: "Your camera will be automatically disabled in restricted zones."
@@ -219,13 +320,24 @@ const UserDashboard: React.FC = () => {
                     Check Status
                   </Button>
                 </div>
+                
+                <div className="mt-2">
+                  <Button 
+                    variant={cameraLocked ? "outline" : "destructive"} 
+                    className="w-full hover-scale"
+                    onClick={cameraLocked ? handleUnlockCameras : handleLockAllCameras}
+                  >
+                    <Lock className="h-4 w-4 mr-2" />
+                    {cameraLocked ? "Unlock Cameras" : "Lock All Cameras"}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </div>
           
           {/* Main Content Area */}
           <div className="col-span-1 md:col-span-3 space-y-4">
-            {isInRestrictedZone && (
+            {(isInRestrictedZone || cameraLocked) && (
               <div className="animate-fade-in">
                 <Card className="border-red-200 bg-red-50">
                   <CardContent className="p-4 flex items-center gap-3">
@@ -233,9 +345,13 @@ const UserDashboard: React.FC = () => {
                       <AlertTriangle className="h-5 w-5 text-red-500" />
                     </div>
                     <div>
-                      <h3 className="font-medium text-red-700">Restricted Zone Detected</h3>
+                      <h3 className="font-medium text-red-700">
+                        {cameraLocked ? "Cameras Manually Locked" : "Restricted Zone Detected"}
+                      </h3>
                       <p className="text-sm text-red-600">
-                        Your camera has been automatically disabled in this area.
+                        {cameraLocked 
+                          ? "You've manually disabled all camera access." 
+                          : "Your camera has been automatically disabled in this area."}
                       </p>
                     </div>
                   </CardContent>
@@ -246,13 +362,17 @@ const UserDashboard: React.FC = () => {
             {/* Tabs Content */}
             <Card className="section-transition">
               <CardHeader className="pb-3">
-                <CardTitle>{activeTab === "map" ? "Zone Map" : "Camera Access"}</CardTitle>
+                <CardTitle>
+                  {activeTab === "map" ? "Zone Map" : 
+                   activeTab === "camera" ? "Camera Access" : "Settings"}
+                </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                   <TabsList className="w-full justify-start px-6">
                     <TabsTrigger value="map">Map</TabsTrigger>
                     <TabsTrigger value="camera">Camera</TabsTrigger>
+                    <TabsTrigger value="settings">Settings</TabsTrigger>
                   </TabsList>
                   
                   <TabsContent value="map" className="p-0">
@@ -269,7 +389,7 @@ const UserDashboard: React.FC = () => {
                         {restrictedZones.map(zone => (
                           <div 
                             key={zone.id} 
-                            className="flex justify-between items-center p-2 rounded-md border bg-muted/50"
+                            className="flex justify-between items-center p-2 rounded-md border bg-muted/50 hover-scale transition duration-300"
                           >
                             <div>
                               <p className="font-medium">{zone.name}</p>
@@ -295,7 +415,7 @@ const UserDashboard: React.FC = () => {
                         </p>
                         
                         <div className="h-[50vh] mb-4">
-                          <CameraSimulator disabled={isInRestrictedZone} />
+                          <CameraSimulator disabled={isInRestrictedZone || cameraLocked} />
                         </div>
                         
                         <div className="bg-muted p-3 rounded-md text-sm">
@@ -305,6 +425,95 @@ const UserDashboard: React.FC = () => {
                             This is enforced by system-level controls and cannot be bypassed. Your camera
                             will automatically be re-enabled when you leave the restricted area.
                           </p>
+                        </div>
+                      </div>
+                    </div>
+                  </TabsContent>
+                  
+                  <TabsContent value="settings" className="p-4">
+                    <div className="space-y-4">
+                      <div className="border rounded-lg p-4">
+                        <h3 className="font-medium mb-3">Appearance Settings</h3>
+                        
+                        <div className="flex justify-between items-center py-2">
+                          <span>Animation Speed</span>
+                          <div className="flex items-center gap-2">
+                            <Button 
+                              variant={animationSpeed === "slow" ? "default" : "ghost"} 
+                              size="sm"
+                              onClick={() => setAnimationSpeed("slow")}
+                            >
+                              Slow
+                            </Button>
+                            <Button 
+                              variant={animationSpeed === "normal" ? "default" : "ghost"} 
+                              size="sm"
+                              onClick={() => setAnimationSpeed("normal")}
+                            >
+                              Normal
+                            </Button>
+                            <Button 
+                              variant={animationSpeed === "fast" ? "default" : "ghost"} 
+                              size="sm"
+                              onClick={() => setAnimationSpeed("fast")}
+                            >
+                              Fast
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="border rounded-lg p-4">
+                        <h3 className="font-medium mb-3">Notification Settings</h3>
+                        
+                        <div className="flex justify-between items-center py-2">
+                          <span>Zone Entry Notifications</span>
+                          <Button 
+                            variant={notificationsEnabled ? "default" : "ghost"}
+                            size="sm"
+                            onClick={() => {
+                              setNotificationsEnabled(!notificationsEnabled);
+                              toast(notificationsEnabled ? "Notifications Disabled" : "Notifications Enabled");
+                            }}
+                          >
+                            <Bell className="h-4 w-4 mr-1" />
+                            {notificationsEnabled ? "Enabled" : "Disabled"}
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <div className="border rounded-lg p-4">
+                        <h3 className="font-medium mb-3">Security Options</h3>
+                        
+                        <div className="flex justify-between items-center py-2">
+                          <span>Manual Camera Lock</span>
+                          <Button 
+                            variant={cameraLocked ? "outline" : "destructive"}
+                            size="sm"
+                            onClick={cameraLocked ? handleUnlockCameras : handleLockAllCameras}
+                          >
+                            <Lock className="h-4 w-4 mr-1" />
+                            {cameraLocked ? "Unlock Cameras" : "Lock Cameras"}
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <div className="border rounded-lg p-4">
+                        <h3 className="font-medium mb-3">Help & Support</h3>
+                        
+                        <div className="flex flex-col gap-2">
+                          <Button variant="ghost" className="justify-start">
+                            <HelpCircle className="h-4 w-4 mr-2" />
+                            How It Works
+                          </Button>
+                          <Button variant="ghost" className="justify-start">
+                            <Share className="h-4 w-4 mr-2" />
+                            Share Feedback
+                          </Button>
+                          <Button variant="ghost" className="justify-start">
+                            <Smartphone className="h-4 w-4 mr-2" />
+                            About Device
+                          </Button>
                         </div>
                       </div>
                     </div>
@@ -320,7 +529,7 @@ const UserDashboard: React.FC = () => {
                 <span>CaptureShield v1.0</span>
               </div>
               <div>
-                <span>Status: {isInRestrictedZone ? "In Restricted Zone" : "In Safe Zone"}</span>
+                <span>Status: {(isInRestrictedZone || cameraLocked) ? "Camera Locked" : "Camera Enabled"}</span>
               </div>
             </div>
           </div>
