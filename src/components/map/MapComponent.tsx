@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +12,7 @@ interface MapProps {
   restrictedZones: RestrictedZone[];
   userLocation?: { lat: number; lng: number } | null;
   isAdminMode?: boolean;
+  onZoneStatusChange?: (isInZone: boolean) => void;
 }
 
 export interface RestrictedZone {
@@ -29,7 +29,8 @@ const MapComponent: React.FC<MapProps> = ({
   onZoneAdded, 
   restrictedZones = [],
   userLocation,
-  isAdminMode = false
+  isAdminMode = false,
+  onZoneStatusChange
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -215,12 +216,18 @@ const MapComponent: React.FC<MapProps> = ({
       return distance <= zone.radius / 1000; // Convert meters to km for this demo
     });
     
-    setIsInRestrictedZone(!!inZone);
+    const isInZone = !!inZone;
+    setIsInRestrictedZone(isInZone);
     setCurrentZone(inZone || null);
     
+    // Call the onZoneStatusChange prop when zone status changes
+    if (onZoneStatusChange) {
+      onZoneStatusChange(isInZone);
+    }
+    
     // Show notification when entering or leaving a zone
-    if (!!inZone !== isInRestrictedZone) {
-      if (!!inZone) {
+    if (isInZone !== isInRestrictedZone) {
+      if (isInZone) {
         toast("Entering Restricted Zone", {
           description: `You've entered ${inZone.name}. Camera access disabled.`
         });
@@ -231,7 +238,7 @@ const MapComponent: React.FC<MapProps> = ({
       }
     }
     
-  }, [simulatedLocation, restrictedZones]);
+  }, [simulatedLocation, restrictedZones, isInRestrictedZone, onZoneStatusChange]);
 
   // Function to calculate distance between two points using Haversine formula
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
