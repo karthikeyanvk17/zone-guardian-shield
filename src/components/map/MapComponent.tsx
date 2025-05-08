@@ -1,10 +1,11 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, Shield, AlertTriangle, Map, MapPin, Navigation, Lock, Layers } from 'lucide-react';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import { Loader2, Shield, AlertTriangle, Map, MapPin, Navigation, Lock, Layers, Camera, CameraOff } from 'lucide-react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { toast } from "@/components/ui/sonner";
 
 interface MapProps {
@@ -31,12 +32,13 @@ const MapComponent: React.FC<MapProps> = ({
   isAdminMode = false
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<mapboxgl.Map | null>(null);
-  const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const mapRef = useRef<L.Map | null>(null);
+  const markersRef = useRef<L.Marker[]>([]);
+  const circlesRef = useRef<L.Circle[]>([]);
   const [loading, setLoading] = useState(true);
   const [isInRestrictedZone, setIsInRestrictedZone] = useState(false);
   const [currentZone, setCurrentZone] = useState<RestrictedZone | null>(null);
-  const [mapboxToken, setMapboxToken] = useState<string>("");
+  const [mapStyle, setMapStyle] = useState<string>('streets');
   
   const [simulatedLocation, setSimulatedLocation] = useState(userLocation || {
     lat: 37.7749,
@@ -56,12 +58,9 @@ const MapComponent: React.FC<MapProps> = ({
           
           // If map is loaded, fly to the new location
           if (mapRef.current) {
-            mapRef.current.flyTo({
-              center: [newLocation.lng, newLocation.lat],
-              essential: true,
-              zoom: 14,
-              speed: 0.8,
-              curve: 1.5
+            mapRef.current.setView([newLocation.lat, newLocation.lng], 14, {
+              animate: true,
+              duration: 1.5
             });
           }
           
@@ -79,165 +78,128 @@ const MapComponent: React.FC<MapProps> = ({
     }
   }, []);
 
-  // Initialize MapBox map
+  // Initialize Leaflet map
   useEffect(() => {
-    if (!mapContainerRef.current) return;
+    if (!mapContainerRef.current || mapRef.current) return;
     
-    // This would be replaced with a proper API key in production
-    // For demo purposes, we're using a public token
-    const token = "pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4M29iazA2Z2gycXA4N2pmbDZmangifQ.-g_vE53SD2WrJ6tFX7QHmA";
-    setMapboxToken(token);
-    mapboxgl.accessToken = token;
-    
-    const map = new mapboxgl.Map({
-      container: mapContainerRef.current,
-      style: 'mapbox://styles/mapbox/streets-v12',
-      center: [simulatedLocation.lng, simulatedLocation.lat],
+    const map = L.map(mapContainerRef.current, {
+      center: [simulatedLocation.lat, simulatedLocation.lng],
       zoom: 14,
-      pitch: 30
+      zoomControl: false
     });
     
-    map.on('load', () => {
-      setLoading(false);
-      
-      // Add user marker with pulsing effect
-      const userMarkerEl = document.createElement('div');
-      userMarkerEl.className = 'user-marker';
-      userMarkerEl.innerHTML = `
+    // Add tile layer (free OpenStreetMap)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+    
+    // Add zoom controls with custom position
+    L.control.zoom({
+      position: 'topright'
+    }).addTo(map);
+    
+    // Add user marker with pulsing effect
+    const userIcon = L.divIcon({
+      className: 'user-marker',
+      html: `
         <div class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></div>
         <div class="relative inline-flex rounded-full h-3 w-3 bg-primary"></div>
-      `;
-      
-      new mapboxgl.Marker({
-        element: userMarkerEl,
-        anchor: 'center'
-      })
-      .setLngLat([simulatedLocation.lng, simulatedLocation.lat])
-      .addTo(map);
-      
-      // Add navigation controls with animation
-      const nav = new mapboxgl.NavigationControl({
-        visualizePitch: true
-      });
-      map.addControl(nav, 'top-right');
-      
-      // Add zone circles
-      addZoneCircles(map);
+      `,
+      iconSize: [20, 20],
+      iconAnchor: [10, 10]
     });
     
-    // Add map animations
-    map.on('movestart', () => {
+    const userMarker = L.marker([simulatedLocation.lat, simulatedLocation.lng], {
+      icon: userIcon
+    }).addTo(map);
+    
+    // Add animation for map load
+    map.on('load', () => {
+      if (mapContainerRef.current) {
+        mapContainerRef.current.classList.add('animate-fade-in');
+      }
+      setLoading(false);
+    });
+    
+    mapRef.current = map;
+    
+    // Add restricted zones
+    addZoneCircles();
+    
+    // Setup map animations
+    map.on('zoomstart', () => {
       if (mapContainerRef.current) {
         mapContainerRef.current.classList.add('scale-105');
         mapContainerRef.current.classList.add('transition-transform');
       }
     });
     
-    map.on('moveend', () => {
+    map.on('zoomend', () => {
       if (mapContainerRef.current) {
         mapContainerRef.current.classList.remove('scale-105');
       }
     });
     
-    mapRef.current = map;
-    
     return () => {
       if (mapRef.current) {
         mapRef.current.remove();
+        mapRef.current = null;
       }
     };
   }, []);
-  
-  // Update map when zones change
-  useEffect(() => {
-    if (mapRef.current && !loading) {
-      addZoneCircles(mapRef.current);
-    }
-  }, [restrictedZones, loading]);
 
-  // Add zone circles to the map
-  const addZoneCircles = (map: mapboxgl.Map) => {
-    // Clear existing markers
+  // Function to add zone circles to the map
+  const addZoneCircles = () => {
+    if (!mapRef.current) return;
+    
+    // Clear existing circles and markers
+    circlesRef.current.forEach(circle => circle.remove());
+    circlesRef.current = [];
+    
     markersRef.current.forEach(marker => marker.remove());
     markersRef.current = [];
     
-    // Check if the map has the source, if yes remove it
-    if (map.getSource('zones')) {
-      if (map.getLayer('zone-fills')) map.removeLayer('zone-fills');
-      if (map.getLayer('zone-borders')) map.removeLayer('zone-borders');
-      map.removeSource('zones');
-    }
-    
-    // Add new source and layers
-    map.addSource('zones', {
-      type: 'geojson',
-      data: {
-        type: 'FeatureCollection',
-        features: restrictedZones.map(zone => ({
-          type: 'Feature',
-          geometry: {
-            type: 'Point',
-            coordinates: [zone.lng, zone.lat]
-          },
-          properties: {
-            id: zone.id,
-            name: zone.name,
-            radius: zone.radius
-          }
-        }))
-      }
-    });
-    
-    // Add a fill layer for the zones
-    map.addLayer({
-      id: 'zone-fills',
-      type: 'circle',
-      source: 'zones',
-      paint: {
-        'circle-radius': ['/', ['get', 'radius'], 5], // Scale down for visual appeal
-        'circle-color': '#ff0000',
-        'circle-opacity': 0.15,
-        'circle-stroke-width': 2,
-        'circle-stroke-color': '#ff0000'
-      }
-    });
-    
-    // Add a border layer for the zones with animation
-    map.addLayer({
-      id: 'zone-borders',
-      type: 'circle',
-      source: 'zones',
-      paint: {
-        'circle-radius': ['/', ['get', 'radius'], 5], 
-        'circle-color': 'transparent',
-        'circle-stroke-width': 3,
-        'circle-stroke-color': '#ff0000',
-        'circle-stroke-opacity': [
-          'interpolate',
-          ['linear'],
-          ['%', ['*', ['time'], 0.5], 1],
-          0, 0.7,
-          1, 0.3
-        ]
-      }
-    });
-    
-    // Add markers for each zone
+    // Add new circles and markers
     restrictedZones.forEach(zone => {
-      const el = document.createElement('div');
-      el.className = 'zone-marker';
-      el.innerHTML = `<div class="text-xs font-bold text-white bg-red-600 px-2 py-1 rounded shadow animate-bounce">${zone.name}</div>`;
+      // Add circle for the restricted zone
+      const circle = L.circle([zone.lat, zone.lng], {
+        radius: zone.radius,
+        color: '#ff0000',
+        fillColor: '#ff0000',
+        fillOpacity: 0.15,
+        weight: 2
+      }).addTo(mapRef.current!);
       
-      const marker = new mapboxgl.Marker({
-        element: el,
-        anchor: 'bottom'
-      })
-      .setLngLat([zone.lng, zone.lat])
-      .addTo(map);
+      // Add animation class
+      const circleElement = circle.getElement();
+      if (circleElement) {
+        circleElement.classList.add('animate-pulse-ring');
+      }
+      
+      circlesRef.current.push(circle);
+      
+      // Add marker for the zone
+      const zoneIcon = L.divIcon({
+        className: 'zone-marker',
+        html: `<div class="text-xs font-bold text-white bg-red-600 px-2 py-1 rounded shadow animate-bounce">${zone.name}</div>`,
+        iconSize: [100, 20],
+        iconAnchor: [50, 0]
+      });
+      
+      const marker = L.marker([zone.lat, zone.lng], {
+        icon: zoneIcon
+      }).addTo(mapRef.current!);
       
       markersRef.current.push(marker);
     });
   };
+
+  // Update map when zones change
+  useEffect(() => {
+    if (mapRef.current && !loading) {
+      addZoneCircles();
+    }
+  }, [restrictedZones, loading]);
 
   // Check if user is in a restricted zone
   useEffect(() => {
@@ -314,11 +276,9 @@ const MapComponent: React.FC<MapProps> = ({
       
       // Add animation for new zone
       if (mapRef.current) {
-        mapRef.current.flyTo({
-          center: [center.lng, center.lat],
-          zoom: 15,
-          speed: 0.8,
-          curve: 1.5
+        mapRef.current.setView([center.lat, center.lng], 15, {
+          animate: true,
+          duration: 1
         });
       }
     }
@@ -335,14 +295,11 @@ const MapComponent: React.FC<MapProps> = ({
           };
           setSimulatedLocation(newLocation);
           
-          // Update the map view
+          // Update the map view with animation
           if (mapRef.current) {
-            mapRef.current.flyTo({
-              center: [newLocation.lng, newLocation.lat],
-              essential: true,
-              zoom: 15,
-              speed: 1.2,
-              curve: 1.5
+            mapRef.current.setView([newLocation.lat, newLocation.lng], 15, {
+              animate: true,
+              duration: 1.5
             });
           }
           
@@ -375,20 +332,42 @@ const MapComponent: React.FC<MapProps> = ({
   const handleToggleMapStyle = () => {
     if (!mapRef.current) return;
     
-    const currentStyle = mapRef.current.getStyle().name;
-    let newStyle = 'mapbox://styles/mapbox/streets-v12';
+    // Toggle between different OSM styles
+    let tileUrl = '';
+    let attribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
     
-    if (currentStyle.includes('streets')) {
-      newStyle = 'mapbox://styles/mapbox/satellite-streets-v12';
-    } else if (currentStyle.includes('satellite')) {
-      newStyle = 'mapbox://styles/mapbox/dark-v11';
-    } else if (currentStyle.includes('dark')) {
-      newStyle = 'mapbox://styles/mapbox/light-v11';
+    if (mapStyle === 'streets') {
+      // Switch to satellite-like style (Stamen Terrain)
+      tileUrl = 'https://stamen-tiles-{s}.a.ssl.fastly.net/terrain/{z}/{x}/{y}{r}.png';
+      attribution += ' | Map tiles by <a href="http://stamen.com">Stamen Design</a>';
+      setMapStyle('satellite');
+    } else if (mapStyle === 'satellite') {
+      // Switch to dark style (CartoDB Dark Matter)
+      tileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+      attribution += ' | &copy; <a href="https://carto.com/attributions">CARTO</a>';
+      setMapStyle('dark');
+    } else if (mapStyle === 'dark') {
+      // Switch to light style (CartoDB Positron)
+      tileUrl = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+      attribution += ' | &copy; <a href="https://carto.com/attributions">CARTO</a>';
+      setMapStyle('light');
+    } else {
+      // Back to default OpenStreetMap
+      tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+      setMapStyle('streets');
     }
     
-    mapRef.current.setStyle(newStyle);
+    // Remove old layers and add new one
+    mapRef.current.eachLayer(layer => {
+      if (layer instanceof L.TileLayer) {
+        mapRef.current!.removeLayer(layer);
+      }
+    });
+    
+    L.tileLayer(tileUrl, { attribution }).addTo(mapRef.current);
+    
     toast("Map Style Changed", {
-      description: "Switched to a new map style."
+      description: `Switched to ${mapStyle} style.`
     });
   };
 
@@ -416,20 +395,21 @@ const MapComponent: React.FC<MapProps> = ({
         </div>
       ) : (
         <div className="relative w-full h-full transition-transform duration-300">
-          {/* MapBox map container */}
+          {/* Map container */}
           <div 
             ref={mapContainerRef} 
             className="w-full h-full transition-all duration-300"
           />
           
           {/* Map controls */}
-          <div className="absolute bottom-4 left-4 flex flex-col gap-2">
+          <div className="absolute bottom-4 left-4 flex flex-col gap-2 animate-slide-in-bottom">
             {isAdminMode && (
               <Button 
                 onClick={handleAddZone}
                 className="animate-fade-in hover-scale"
                 variant="default"
               >
+                <MapPin className="h-4 w-4 mr-2 animate-bounce" />
                 Add Restricted Zone
               </Button>
             )}
@@ -439,7 +419,7 @@ const MapComponent: React.FC<MapProps> = ({
               className="animate-fade-in hover-scale"
               variant="outline"
             >
-              <Navigation className="h-4 w-4 mr-2" />
+              <Navigation className="h-4 w-4 mr-2 animate-pulse-subtle" />
               Use Current Location
             </Button>
             
@@ -448,7 +428,7 @@ const MapComponent: React.FC<MapProps> = ({
               className="animate-fade-in hover-scale"
               variant="outline"
             >
-              <Layers className="h-4 w-4 mr-2" />
+              <Layers className="h-4 w-4 mr-2 animate-rotate" />
               Change Map Style
             </Button>
           </div>
@@ -466,9 +446,9 @@ const MapComponent: React.FC<MapProps> = ({
         </div>
       )}
       
-      {/* Add MapBox attribution */}
+      {/* Map attribution */}
       <div className="absolute bottom-0 right-0 text-xs text-gray-500 bg-white/80 px-1">
-        © <a href="https://www.mapbox.com/about/maps/" target="_blank">Mapbox</a>
+        © OpenStreetMap contributors
       </div>
     </div>
   );

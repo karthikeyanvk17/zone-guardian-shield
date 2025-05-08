@@ -173,6 +173,57 @@
   }
 }
 
+@keyframes spin-slow {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ripple {
+  0% {
+    box-shadow: 0 0 0 0 rgba(var(--primary), 0.3);
+  }
+  100% {
+    box-shadow: 0 0 0 20px rgba(var(--primary), 0);
+  }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+@keyframes glitch {
+  0% {
+    clip-path: inset(40% 0 61% 0);
+    transform: translate(-2px, 2px);
+  }
+  20% {
+    clip-path: inset(92% 0 1% 0);
+    transform: translate(1px, -3px);
+  }
+  40% {
+    clip-path: inset(43% 0 1% 0);
+    transform: translate(-3px, 1px);
+  }
+  60% {
+    clip-path: inset(25% 0 58% 0);
+    transform: translate(3px, -1px);
+  }
+  80% {
+    clip-path: inset(54% 0 7% 0);
+    transform: translate(-2px, -2px);
+  }
+  100% {
+    clip-path: inset(58% 0 43% 0);
+    transform: translate(2px, 3px);
+  }
+}
+
 .animate-slide-in {
   animation: slide-in 0.5s ease-out forwards;
 }
@@ -197,12 +248,28 @@
   animation: rotate 2s linear infinite;
 }
 
+.animate-spin-slow {
+  animation: spin-slow 8s linear infinite;
+}
+
 .animate-pulse-ring {
   animation: pulse-ring 3s infinite;
 }
 
 .animate-float {
   animation: float 6s ease-in-out infinite;
+}
+
+.animate-ripple {
+  animation: ripple 1.5s ease-out infinite;
+}
+
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+.animate-glitch {
+  animation: glitch 500ms infinite;
 }
 
 .staggered-animation > * {
@@ -218,6 +285,12 @@
 .staggered-animation > *:nth-child(6) { animation-delay: 0.6s; }
 .staggered-animation > *:nth-child(7) { animation-delay: 0.7s; }
 .staggered-animation > *:nth-child(8) { animation-delay: 0.8s; }
+
+.delay-100 { animation-delay: 100ms; }
+.delay-150 { animation-delay: 150ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-500 { animation-delay: 500ms; }
 
 .fast-animations .staggered-animation > * {
   animation-duration: 0.3s;
@@ -237,7 +310,7 @@
   transform: scale(1.03);
 }
 
-/* MapBox specific styles */
+/* Leaflet map specific styles */
 .user-marker {
   width: 20px;
   height: 20px;
@@ -251,19 +324,18 @@
   transform: translateY(-50%);
 }
 
-/* Custom map controls */
-.mapboxgl-ctrl-group {
-  animation: fade-in 0.5s ease-out;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+/* Leaflet controls styling */
+.leaflet-control-container .leaflet-control {
   border-radius: 8px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
 }
 
-/* Map button animations */
-.mapboxgl-ctrl button {
+.leaflet-control-zoom a {
   transition: all 0.2s ease;
 }
 
-.mapboxgl-ctrl button:hover {
+.leaflet-control-zoom a:hover {
   background-color: #f3f4f6;
 }
 
@@ -271,6 +343,28 @@
   width: 100%;
   height: 100%;
   border-radius: var(--radius);
+}
+
+/* Enhanced tooltips and overlays */
+.map-tooltip {
+  background-color: rgba(0, 0, 0, 0.75);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease;
+  pointer-events: none;
+}
+
+.map-tooltip:before {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -8px;
+  border-width: 8px;
+  border-style: solid;
+  border-color: rgba(0, 0, 0, 0.75) transparent transparent transparent;
 }
 
 .gradient-text {
@@ -288,6 +382,7 @@
 .menu-overlay {
   backdrop-filter: blur(8px);
   background-color: rgba(0, 0, 0, 0.5);
+  z-index: 50;
 }
 
 .shield-shadow {
@@ -329,4 +424,38 @@
 
 .animate-progress {
   animation: progress 30s linear forwards;
+}
+
+/* New hover effects */
+.hover-glow {
+  transition: all 0.3s ease;
+}
+
+.hover-glow:hover {
+  box-shadow: 0 0 15px rgba(var(--primary), 0.6);
+}
+
+.hover-lift {
+  transition: all 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-5px);
+}
+
+.hover-bright {
+  transition: all 0.2s ease;
+}
+
+.hover-bright:hover {
+  filter: brightness(1.1);
+}
+
+/* Overlay gradients */
+.overlay-gradient-bottom {
+  background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%);
+}
+
+.overlay-gradient-top {
+  background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%);
 }
