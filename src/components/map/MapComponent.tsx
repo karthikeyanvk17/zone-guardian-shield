@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,7 +37,6 @@ const MapComponent: React.FC<MapProps> = ({
   const [isInRestrictedZone, setIsInRestrictedZone] = useState(false);
   const [currentZone, setCurrentZone] = useState<RestrictedZone | null>(null);
   const [mapboxToken, setMapboxToken] = useState<string>("");
-  const { toast: useToastFn } = useToast();
   
   const [simulatedLocation, setSimulatedLocation] = useState(userLocation || {
     lat: 37.7749,
@@ -74,8 +72,7 @@ const MapComponent: React.FC<MapProps> = ({
         (error) => {
           console.error("Error getting location:", error);
           toast("Location error", {
-            description: "Could not access your location. Using default.",
-            variant: "destructive"
+            description: "Could not access your location. Using default."
           });
         }
       );
@@ -356,8 +353,7 @@ const MapComponent: React.FC<MapProps> = ({
         (error) => {
           console.error("Error getting location:", error);
           toast("Location Error", {
-            description: "Could not access your location. Please check permissions.",
-            variant: "destructive"
+            description: "Could not access your location. Please check permissions."
           });
           
           // Fallback to using random location as before
@@ -371,8 +367,7 @@ const MapComponent: React.FC<MapProps> = ({
       );
     } else {
       toast("Location Not Supported", {
-        description: "Geolocation is not supported by your browser.",
-        variant: "destructive"
+        description: "Geolocation is not supported by your browser."
       });
     }
   };

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -67,8 +66,7 @@ const UserDashboard: React.FC = () => {
         .catch(err => {
           console.error("Error accessing camera:", err);
           toast("Camera Permission Denied", {
-            description: "Please enable camera access for full functionality.",
-            variant: "destructive"
+            description: "Please enable camera access for full functionality."
           });
         });
     }
@@ -90,8 +88,7 @@ const UserDashboard: React.FC = () => {
         (error) => {
           console.error("Location error:", error);
           toast("Location Access Denied", {
-            description: "Using simulated location instead.",
-            variant: "destructive"
+            description: "Using simulated location instead."
           });
         }
       );
